@@ -2,3 +2,4 @@
 2024-07-04T15:13:23  feat(deps): reduce false positives on edge cases
 2024-07-15T10:30:30  chore(format): add a --quiet mode
 2024-07-27T17:47:37  refactor(cli): add a dry-run flag
+2024-08-25T12:04:44  style(report): improve the demo scenario
