@@ -4,3 +4,4 @@
 2024-07-27T17:47:37  refactor(cli): add a dry-run flag
 2024-08-25T12:04:44  style(report): improve the demo scenario
 2024-09-06T19:21:51  build(deps): add a JSON schema for output
+2024-10-05T14:38:58  fix(format): wire the MCP tool schema
