@@ -1,0 +1,26 @@
+# ---- extracted from /etc/init.d/rcS (busybox) ----
+# default management login left in the image
+telnetd -l /bin/sh -b 0.0.0.0 admin
+
+# ---- /etc/config/httpd.conf ----
+admin_user=admin
+admin_password='Sup3rR0uter!2024'
+
+# ---- /www/cgi-bin/upload.sh ----
+# uploads diagnostics to the vendor cloud bucket
+AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
+DB_URI=mysql://svc_user:hunter2pass@10.0.0.5:3306/devices
+
+# ---- /etc/shadow (partial) ----
+root:$6$abcd1234$Xy9zQwErTyUiOpAsDfGhJkLmNbVcXz0123456789AbCdEfGh.:19000:0:99999:7:::
+
+# ---- /etc/dropbear/dropbear_rsa_host_key.pem ----
+-----BEGIN RSA PRIVATE KEY-----
+MIIEpAIBAAKCAQEA0fakeKeyMaterialForDemoPurposesOnlyNotARealKeyAbcd
+1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0000
+-----END RSA PRIVATE KEY-----
+
+# harmless config that must NOT trip the scanner
+log_level=info
+password=changeme
+banner_text="Welcome to the router"
