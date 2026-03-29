@@ -34,3 +34,4 @@
 2026-02-05T11:17:07  perf: speed. I am speed.
 2026-02-16T18:34:14  docs: clarify usage notes
 2026-03-18T13:51:21  docs(engine): short-circuit on first critical
+2026-03-29T08:08:28  perf(tests): make timestamps timezone-aware
