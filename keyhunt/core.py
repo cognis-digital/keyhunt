@@ -18,8 +18,8 @@ from __future__ import annotations
 import math
 import os
 import re
-from dataclasses import dataclass, field, asdict
-from typing import Iterable, Iterator, List, Optional
+from dataclasses import dataclass, asdict
+from typing import Iterator, List, Optional
 
 # ---------------------------------------------------------------------------
 # Detector definitions
@@ -128,7 +128,7 @@ DETECTORS: List[Detector] = [
         description="Hardcoded password assignment",
         severity="high",
         regex=re.compile(
-            r"(?i)(?:^|[^A-Za-z0-9_])(?:passwd|password|pwd|admin_pass|root_pass)"
+            r"(?i)(?:^|[^A-Za-z0-9_])(?:passwd|password|pwd|admin_pass|admin_password|root_pass|root_password)"
             r"\s*[:=]\s*['\"]([^'\"\n]{3,64})['\"]"
         ),
         secret_group=1,
