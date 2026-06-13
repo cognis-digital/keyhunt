@@ -20,6 +20,34 @@ pip install cognis-keyhunt
 keyhunt scan .            # → prioritized findings in seconds
 ```
 
+## Usage — step by step
+
+1. **Install** the scanner:
+
+   ```bash
+   pip install cognis-keyhunt
+   ```
+
+2. **Scan a tree** (e.g. an extracted firmware image or filesystem dump) for hardcoded keys, tokens, and default creds:
+
+   ```bash
+   keyhunt scan /tmp/firmware_extracted
+   ```
+
+3. **Filter by severity** and emit JSON for CI or `jq`:
+
+   ```bash
+   keyhunt scan ./dump --severity high --format json | jq '.findings[] | select(.severity=="critical")'
+   ```
+
+4. **Read the result.** Secrets are redacted by default; pass `--show-secrets` to print full values. Exit code `0` = no findings, `1` = one or more secrets found, `2` = usage/runtime error.
+
+5. **Gate a build.** keyhunt's exit code makes it a drop-in CI check:
+
+   ```bash
+   keyhunt scan ./build --severity high || { echo 'hardcoded secrets found'; exit 1; }
+   ```
+
 ## Contents
 
 - [Why keyhunt?](#why) · [Features](#features) · [Quick start](#quick-start) · [Example](#example) · [Architecture](#architecture) · [AI stack](#ai-stack) · [How it compares](#how-it-compares) · [Integrations](#integrations) · [Install anywhere](#install-anywhere) · [Related](#related) · [Contributing](#contributing)
