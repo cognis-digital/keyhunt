@@ -128,7 +128,7 @@ DETECTORS: List[Detector] = [
         description="Hardcoded password assignment",
         severity="high",
         regex=re.compile(
-            r"(?i)(?:^|[^A-Za-z0-9_])(?:passwd|password|pwd|admin_pass|root_pass)"
+            r"(?i)(?:^|[^A-Za-z0-9])(?:[a-z0-9]*_)?(?:passwd|password|pwd|pass)"
             r"\s*[:=]\s*['\"]([^'\"\n]{3,64})['\"]"
         ),
         secret_group=1,
@@ -148,8 +148,9 @@ DETECTORS: List[Detector] = [
         id="telnet-default-cred",
         description="Default/embedded telnet or busybox login",
         severity="high",
+        # -l takes the login *program* (e.g. /bin/sh = direct root shell) or a name
         regex=re.compile(
-            r"(?i)(?:telnetd|busybox).{0,40}?-l\s*['\"]?([A-Za-z0-9_]{3,32})"
+            r"(?i)(?:telnetd|busybox)\b[^\n]*?-l\s+['\"]?([A-Za-z0-9_/.\-]{3,40})"
         ),
         secret_group=1,
     ),
