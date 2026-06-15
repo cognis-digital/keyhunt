@@ -15,11 +15,15 @@ Design:
 """
 from __future__ import annotations
 
+import json
 import math
 import os
 import re
 from dataclasses import dataclass, asdict
 from typing import Iterator, List, Optional
+
+TOOL_NAME = "keyhunt"
+TOOL_VERSION = "0.1.0"
 
 # ---------------------------------------------------------------------------
 # Detector definitions
@@ -303,7 +307,13 @@ def scan_path(
     skip_ext: Optional[set] = None,
     max_bytes: int = DEFAULT_MAX_BYTES,
 ) -> List[Finding]:
-    """Scan a file or directory tree and return all findings."""
+    """Scan a file or directory tree and return all findings.
+
+    Raises FileNotFoundError if *root* does not exist.
+    Returns an empty list if the tree contains no scannable files.
+    """
+    if not os.path.exists(root):
+        raise FileNotFoundError(f"path not found: {root}")
     findings: List[Finding] = []
     for path in iter_files(root, skip_ext=skip_ext, max_bytes=max_bytes):
         findings.extend(scan_file(path, max_bytes=max_bytes))
@@ -311,3 +321,24 @@ def scan_path(
     sev_rank = {"critical": 0, "high": 1, "medium": 2, "low": 3}
     findings.sort(key=lambda f: (sev_rank.get(f.severity, 9), f.path, f.line))
     return findings
+
+
+# ---------------------------------------------------------------------------
+# Convenience aliases (used by mcp_server and external callers)
+# ---------------------------------------------------------------------------
+
+
+def scan(target: str, **kwargs) -> List[Finding]:
+    """Alias for scan_path; raises FileNotFoundError on missing target."""
+    return scan_path(target, **kwargs)
+
+
+def to_json(findings: List[Finding], *, redact: bool = True) -> str:
+    """Serialise a list of Finding objects to a JSON string."""
+    payload = {
+        "tool": TOOL_NAME,
+        "version": TOOL_VERSION,
+        "count": len(findings),
+        "findings": [f.to_dict(redact=redact) for f in findings],
+    }
+    return json.dumps(payload, indent=2)

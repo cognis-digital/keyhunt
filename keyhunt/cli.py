@@ -115,17 +115,18 @@ def _render_json(findings: List[Finding], show_secrets: bool) -> str:
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser = _build_parser()
-    args = parser.parse_args(argv)
+    try:
+        args = parser.parse_args(argv)
+    except SystemExit as exc:
+        # argparse already printed usage/error; map to exit code 2
+        return int(exc.code) if exc.code is not None else 2
 
     if not args.command:
-        parser.print_help()
+        parser.print_help(sys.stderr)
         return 2
 
     if args.command == "scan":
-        fmt = args.format or args.format if args.format else None
-        # subcommand --format overrides global; fall back to global default
-        fmt = args.format if getattr(args, "format", None) else "table"
-        # argparse stores global --format on the same attribute name; resolve:
+        # subcommand --format overrides global; fall back to "table"
         fmt = args.format or "table"
 
         if not os.path.exists(args.path):
@@ -134,8 +135,11 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         try:
             findings = scan_path(args.path)
-        except Exception as exc:  # pragma: no cover - defensive
+        except (OSError, FileNotFoundError) as exc:
             print(f"{TOOL_NAME}: error: {exc}", file=sys.stderr)
+            return 2
+        except Exception as exc:  # pragma: no cover - last-resort safety net
+            print(f"{TOOL_NAME}: unexpected error: {exc}", file=sys.stderr)
             return 2
 
         findings = _filter_severity(findings, args.severity)
@@ -147,7 +151,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         return 1 if findings else 0
 
-    parser.print_help()
+    parser.print_help(sys.stderr)
     return 2
 
 
