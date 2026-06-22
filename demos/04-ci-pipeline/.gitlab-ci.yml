@@ -1,0 +1,25 @@
+# Recovered from a public fork's CI history. Secrets were pasted directly into
+# the pipeline file instead of using masked CI variables.
+stages:
+  - build
+  - deploy
+
+variables:
+  AWS_ACCESS_KEY_ID: "AKIAIOSFODNN7EXAMPLE"
+  # NOTE: this should have been a masked variable, not committed here.
+  aws_secret_access_key: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+
+build-image:
+  stage: build
+  script:
+    - export GOOGLE_API_KEY=AIzaSyA1234567890abcdefghijklmnopqrstuv
+    - docker build -t app .
+
+deploy-prod:
+  stage: deploy
+  script:
+    # token used to push release notes back to the repo
+    - export GITHUB_TOKEN=ghp_ab12CD34ef56GH78ij90KL12mn34OP56qr78
+    - ./scripts/release.sh
+  only:
+    - main

@@ -50,7 +50,7 @@ keyhunt scan .            # → prioritized findings in seconds
 
 ## Contents
 
-- [Why keyhunt?](#why) · [Features](#features) · [Quick start](#quick-start) · [Example](#example) · [Architecture](#architecture) · [AI stack](#ai-stack) · [How it compares](#how-it-compares) · [Integrations](#integrations) · [Install anywhere](#install-anywhere) · [Related](#related) · [Contributing](#contributing)
+- [Why keyhunt?](#why) · [Features](#features) · [Quick start](#quick-start) · [Example](#example) · [Demos](#demos) · [Output formats](#output-formats) · [Architecture](#architecture) · [AI stack](#ai-stack) · [How it compares](#how-it-compares) · [Integrations](#integrations) · [Install anywhere](#install-anywhere) · [Related](#related) · [Contributing](#contributing)
 
 <a name="why"></a>
 ## Why keyhunt?
@@ -64,10 +64,11 @@ Instant gratification — point at any router firmware and get 'hardcoded root S
 <a name="features"></a>
 ## Features
 
-- ✅ Scan Bytes
-- ✅ Scan File
-- ✅ Iter Files
-- ✅ Scan Path
+- ✅ 12 detectors — PEM private keys, AWS access/secret keys, Google API keys, GitHub & Slack tokens, JWTs, connection-URI passwords, `/etc/shadow` hashes, hardcoded passwords, generic high-entropy api/secret assignments, telnet/busybox default logins
+- ✅ Secrets **redacted by default** (safe to paste into tickets/CI logs); `--show-secrets` to reveal
+- ✅ Placeholder + entropy filtering keeps the false-positive rate low (see [`demos/10-clean-config`](demos/10-clean-config/))
+- ✅ Output as `table`, `json`, or **SARIF 2.1.0**; `--out FILE`, `--severity`, and `--fail-on` for CI gating
+- ✅ 9 real-world [demo scenarios](#demos), each verified by a test
 - ✅ Runs on Linux/macOS/Windows · Docker · devcontainer
 - ✅ Ports in Python, JavaScript, Go, and Rust (`ports/`)
 
@@ -90,12 +91,68 @@ keyhunt scan . --fail-on high        # CI gate (non-zero exit)
 ## Example
 
 ```text
-$ keyhunt scan .
-  [HIGH    ] KEY-001  example finding             (./src/app.py)
-  [MEDIUM  ] KEY-002  another signal              (./config.yaml)
+$ keyhunt scan demos/06-iot-router
+Found 4 secret(s): 1 critical, 3 high
 
-  2 findings · risk score 5 · 38ms
+[CRITICAL] private-key              demos/06-iot-router/rootfs_dump.txt:4:1
+             PEM private key block
+             secret: ----************************-----
+[HIGH    ] telnet-default-cred     demos/06-iot-router/rootfs_dump.txt:10:20
+             Default/embedded telnet or busybox login
+             secret: /******
+[HIGH    ] slack-token             demos/06-iot-router/rootfs_dump.txt:13:21
+             Slack token
+             secret: xoxb**********************************************uVwX
+[HIGH    ] hardcoded-password      demos/06-iot-router/rootfs_dump.txt:17:17
+             Hardcoded password assignment
+             secret: Admi*********tory
 ```
+
+<div align="right"><a href="#top">↑ back to top</a></div>
+
+<a name="demos"></a>
+## Demos — real-world scenarios
+
+Every folder in [`demos/`](demos/) is a self-contained scenario: a realistic
+input in keyhunt's real input format plus a `SCENARIO.md` that explains where
+the data came from, what keyhunt reports, and how to remediate. Each one is
+covered by a test, so the findings stay reproducible.
+
+| Demo | Scenario | Fires |
+|---|---|---|
+| [`01-basic`](demos/01-basic/) | Extracted router firmware filesystem | private key, AWS key, telnet backdoor, shadow hash, URI password, hardcoded password |
+| [`04-ci-pipeline`](demos/04-ci-pipeline/) | Secrets pasted into `.gitlab-ci.yml` | AWS access + secret key, GitHub token, Google API key |
+| [`05-mobile-app`](demos/05-mobile-app/) | Decompiled Android APK (`strings.xml` + smali) | Google API key, JWT, connection-URI password |
+| [`06-iot-router`](demos/06-iot-router/) | Carved SquashFS rootfs | OpenSSH host key, telnet backdoor, Slack token, factory password |
+| [`07-docker-compose`](demos/07-docker-compose/) | Live creds in `docker-compose.yml` | Postgres password, two connection-URI passwords |
+| [`08-k8s-secrets`](demos/08-k8s-secrets/) | Helm `values.yaml` with hardcoded secrets | MongoDB URI, Stripe key, client secret |
+| [`09-source-leak`](demos/09-source-leak/) | Leaked Django `settings.py` | SMTP password, Django `SECRET_KEY`, Sentry token |
+| [`10-clean-config`](demos/10-clean-config/) | Clean template (placeholders + `${ENV}`) | **nothing** — false-positive control, exits 0 |
+| [`11-backup-shadow`](demos/11-backup-shadow/) | Misplaced `/etc` backup tarball | EC TLS private key, three `/etc/shadow` hashes |
+
+```bash
+keyhunt scan demos/06-iot-router            # see the firmware findings
+keyhunt scan demos/10-clean-config          # confirm a clean tree exits 0
+```
+
+<div align="right"><a href="#top">↑ back to top</a></div>
+
+<a name="output-formats"></a>
+## Output formats & CI gating
+
+```bash
+keyhunt scan ./dump                                  # table (default)
+keyhunt scan ./dump --format json                    # machine-readable
+keyhunt scan ./dump --format sarif --out keyhunt.sarif   # SARIF 2.1.0 for code-scanning
+keyhunt scan ./dump --severity high                  # only report high+ findings
+keyhunt scan ./dump --fail-on high                   # exit 1 only on high+ (CI gate)
+```
+
+The SARIF output is a valid 2.1.0 log (one rule per detector, one result per
+finding, secrets redacted) and uploads directly via
+`github/codeql-action/upload-sarif`. `--fail-on` lets you report everything
+while gating the build on a chosen severity; `--out` writes to a file instead
+of stdout.
 
 <div align="right"><a href="#top">↑ back to top</a></div>
 

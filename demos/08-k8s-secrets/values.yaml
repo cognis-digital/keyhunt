@@ -1,0 +1,17 @@
+# Helm values.yaml checked into a chart repo. Production overrides should live
+# in a sealed-secret or external secret store, not here.
+replicaCount: 3
+
+image:
+  repository: registry.example.com/payments
+  tag: "1.8.2"
+
+config:
+  # third-party processor credentials pasted in during an incident
+  payment_api_key: "EXAMPLE4eC39HqLyjWDarjtT1zdp7dcKK2Fg8hQ"
+  client_secret: "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822c"
+  mongodb_uri: "mongodb://svc_payments:M0ngoSecret#42@mongo-0.mongo:27017/payments?replicaSet=rs0"
+
+ingress:
+  enabled: true
+  host: payments.example.com

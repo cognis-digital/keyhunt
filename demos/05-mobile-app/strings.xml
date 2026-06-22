@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Extracted from an APK via apktool: res/values/strings.xml -->
+<!-- Mobile apps frequently ship backend keys in plaintext resources. -->
+<resources>
+    <string name="app_name">FieldSync</string>
+    <string name="maps_api_key">AIzaSyB7kQw9ZxLmNoPqRsTuVwXyZ0123456789</string>
+    <string name="support_email">support@example.com</string>
+    <!-- a long-lived session token baked into the build -->
+    <string name="bootstrap_jwt">eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkZpZWxkU3luYyIsImlhdCI6MTYwMDAwMDAwMH0.dummysignatureForDemoPurposesOnly1234</string>
+    <string name="theme_color">#6B46C1</string>
+</resources>

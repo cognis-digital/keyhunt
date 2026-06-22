@@ -1,0 +1,16 @@
+# Text listing of a misplaced /etc backup tarball found on a public file share.
+# Two of the most damaging things an /etc backup can leak: password hashes and
+# the host's TLS/SSH private keys.
+
+==> etc/shadow <==
+root:$6$rounds=5000$saltsalt$Xy9zQwErTyUiOpAsDfGhJkLmNbVcXz0123456789AbCdEfGh.:19876:0:99999:7:::
+admin:$6$abc123def$9oVcXzAsDfGhJkLmNbQwErTyUiOpZx0123456789AbCdEfGhIj.:19876:0:99999:7:::
+backup:$1$saltz$lJ9.YG.GhaQ8tXw6wZpQk0:19876:0:99999:7:::
+daemon:*:19000:0:99999:7:::
+sshd:!:19000:0:99999:7:::
+
+==> etc/ssl/private/server.key <==
+-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEIDUMMYecPrivateKeyMaterialForDemoPurposesOnlyNotReal00000oAoGCCqG
+SM49AwEHoUQDQgAEdummypublicpointdatadummypublicpointdatadummypublic000000
+-----END EC PRIVATE KEY-----

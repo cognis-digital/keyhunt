@@ -1,0 +1,16 @@
+# A staging compose file someone committed with live credentials inline
+# instead of referencing an untracked .env or a secrets manager.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: "Pg$taging!2024xZ"
+  api:
+    image: registry.example.com/app:latest
+    environment:
+      DATABASE_URL: "postgres://app_user:Tr0ub4dor3xQ@postgres:5432/appdb"
+      REDIS_URL: "redis://:R3disPassw0rd!9@redis:6379/0"
+      # broker for background jobs
+      AMQP_URL: "amqp://rabbit:Rabb1tMQ$ecret@rabbitmq:5672/vhost"
+    depends_on:
+      - postgres

@@ -41,7 +41,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--format",
-        choices=("table", "json"),
+        choices=("table", "json", "sarif"),
         default="table",
         help="output format (default: table)",
     )
@@ -56,7 +56,7 @@ def _build_parser() -> argparse.ArgumentParser:
     scan.add_argument("path", help="file or directory to scan")
     scan.add_argument(
         "--format",
-        choices=("table", "json"),
+        choices=("table", "json", "sarif"),
         default=None,
         help="output format (overrides global --format)",
     )
@@ -65,6 +65,19 @@ def _build_parser() -> argparse.ArgumentParser:
         choices=("critical", "high", "medium", "low"),
         default="low",
         help="minimum severity to report (default: low = report everything)",
+    )
+    scan.add_argument(
+        "--fail-on",
+        choices=("critical", "high", "medium", "low"),
+        default=None,
+        help="exit non-zero only when a finding at or above this severity exists "
+        "(default: any finding fails)",
+    )
+    scan.add_argument(
+        "--out",
+        metavar="FILE",
+        default=None,
+        help="write output to FILE instead of stdout (e.g. results.sarif)",
     )
     scan.add_argument(
         "--show-secrets",
@@ -113,6 +126,75 @@ def _render_json(findings: List[Finding], show_secrets: bool) -> str:
     return json.dumps(payload, indent=2)
 
 
+# SARIF 2.1.0 maps keyhunt severities onto the spec's "level" enum.
+_SARIF_LEVEL = {
+    "critical": "error",
+    "high": "error",
+    "medium": "warning",
+    "low": "note",
+}
+
+
+def _render_sarif(findings: List[Finding], show_secrets: bool) -> str:
+    """Render findings as a SARIF 2.1.0 log (github/codeql-action ingestible).
+
+    One SARIF `rule` per detector that fired; one `result` per finding. Secrets
+    are redacted in the message unless --show-secrets is set, so the SARIF file
+    is safe to upload to code-scanning dashboards.
+    """
+    rules: dict = {}
+    results: List[dict] = []
+    for f in findings:
+        if f.detector not in rules:
+            rules[f.detector] = {
+                "id": f.detector,
+                "name": f.detector.replace("-", " ").title().replace(" ", ""),
+                "shortDescription": {"text": f.description},
+                "defaultConfiguration": {
+                    "level": _SARIF_LEVEL.get(f.severity, "warning")
+                },
+                "properties": {"keyhunt-severity": f.severity, "tags": ["security"]},
+            }
+        value = f.secret if show_secrets else f.redacted()
+        results.append(
+            {
+                "ruleId": f.detector,
+                "level": _SARIF_LEVEL.get(f.severity, "warning"),
+                "message": {"text": f"{f.description} (secret: {value})"},
+                "properties": {"keyhunt-severity": f.severity},
+                "locations": [
+                    {
+                        "physicalLocation": {
+                            "artifactLocation": {"uri": f.path.replace("\\", "/")},
+                            "region": {
+                                "startLine": max(f.line, 1),
+                                "startColumn": max(f.column, 1),
+                            },
+                        }
+                    }
+                ],
+            }
+        )
+    sarif = {
+        "version": "2.1.0",
+        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+        "runs": [
+            {
+                "tool": {
+                    "driver": {
+                        "name": TOOL_NAME,
+                        "version": TOOL_VERSION,
+                        "informationUri": "https://github.com/cognis-digital/keyhunt",
+                        "rules": list(rules.values()),
+                    }
+                },
+                "results": results,
+            }
+        ],
+    }
+    return json.dumps(sarif, indent=2)
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
@@ -122,10 +204,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 2
 
     if args.command == "scan":
-        fmt = args.format or args.format if args.format else None
-        # subcommand --format overrides global; fall back to global default
-        fmt = args.format if getattr(args, "format", None) else "table"
-        # argparse stores global --format on the same attribute name; resolve:
+        # subcommand --format overrides global; fall back to global default.
         fmt = args.format or "table"
 
         if not os.path.exists(args.path):
@@ -141,10 +220,27 @@ def main(argv: Optional[List[str]] = None) -> int:
         findings = _filter_severity(findings, args.severity)
 
         if fmt == "json":
-            print(_render_json(findings, args.show_secrets))
+            output = _render_json(findings, args.show_secrets)
+        elif fmt == "sarif":
+            output = _render_sarif(findings, args.show_secrets)
         else:
-            print(_render_table(findings, args.show_secrets))
+            output = _render_table(findings, args.show_secrets)
 
+        if args.out:
+            try:
+                with open(args.out, "w", encoding="utf-8") as fh:
+                    fh.write(output + "\n")
+            except OSError as exc:
+                print(f"{TOOL_NAME}: error: cannot write {args.out}: {exc}",
+                      file=sys.stderr)
+                return 2
+        else:
+            print(output)
+
+        # CI gate: --fail-on raises the bar; by default any finding fails.
+        if args.fail_on:
+            gating = _filter_severity(findings, args.fail_on)
+            return 1 if gating else 0
         return 1 if findings else 0
 
     parser.print_help()
