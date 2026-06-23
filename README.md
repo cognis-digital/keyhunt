@@ -50,7 +50,7 @@ keyhunt scan .            # → prioritized findings in seconds
 
 ## Contents
 
-- [Why keyhunt?](#why) · [Features](#features) · [Quick start](#quick-start) · [Example](#example) · [Demos](#demos) · [Output formats](#output-formats) · [Architecture](#architecture) · [AI stack](#ai-stack) · [How it compares](#how-it-compares) · [Integrations](#integrations) · [Install anywhere](#install-anywhere) · [Related](#related) · [Contributing](#contributing)
+- [Why keyhunt?](#why) · [Features](#features) · [Quick start](#quick-start) · [Example](#example) · [Demos](#demos) · [Output formats](#output-formats) · [Vulnerability database](#vulndb) · [Edge data feeds](#feeds) · [Scope & safety](#scope) · [Architecture](#architecture) · [AI stack](#ai-stack) · [How it compares](#how-it-compares) · [Integrations](#integrations) · [Install anywhere](#install-anywhere) · [Related](#related) · [Contributing](#contributing)
 
 <a name="why"></a>
 ## Why keyhunt?
@@ -70,7 +70,10 @@ Instant gratification — point at any router firmware and get 'hardcoded root S
 - ✅ Output as `table`, `json`, or **SARIF 2.1.0**; `--out FILE`, `--severity`, and `--fail-on` for CI gating
 - ✅ 9 real-world [demo scenarios](#demos), each verified by a test
 - ✅ Runs on Linux/macOS/Windows · Docker · devcontainer
-- ✅ Ports in Python, JavaScript, Go, and Rust (`ports/`)
+- ✅ **Passive & offline by design** — keyhunt only ever *reads* files; it makes no network connections and runs air-gapped
+- ✅ Real ports in **Python, Node/JavaScript, Go, and Rust** (`ports/`) — each mirrors the core detector set, emits the same JSON shape, and ships with a test suite + CI
+- ✅ Bundled **262,351-record offline OSV vulnerability database** (`keyhunt vulndb`) — no network, no key (see [Vulnerability database](#vulndb))
+- ✅ Keyless **edge / air-gap data-feed ingester** (`keyhunt feeds`) for CISA KEV · EPSS · OSV · NVD · MITRE ATT&CK · NIST OSCAL · abuse.ch (see [Edge data feeds](#feeds))
 
 <div align="right"><a href="#top">↑ back to top</a></div>
 
@@ -153,6 +156,104 @@ finding, secrets redacted) and uploads directly via
 `github/codeql-action/upload-sarif`. `--fail-on` lets you report everything
 while gating the build on a chosen severity; `--out` writes to a file instead
 of stdout.
+
+<div align="right"><a href="#top">↑ back to top</a></div>
+
+<a name="vulndb"></a>
+## Vulnerability database — bundled, offline, 262k records
+
+keyhunt ships a consolidated **OSV corpus** at `keyhunt/cognis_vulndb.jsonl.gz`:
+**262,351 real vulnerabilities** across PyPI, npm, Go, Maven, RubyGems,
+crates.io, and NuGet, each with `id`, CVE/GHSA aliases, ecosystem, summary,
+severity, affected packages, and publish/modify dates. The loader is pure
+standard library, so it works **fully offline / air-gapped — no network, no key**.
+
+```bash
+keyhunt vulndb --count                       # -> 262351
+keyhunt vulndb CVE-2021-44228                 # Log4Shell record (JSON)
+keyhunt vulndb --package log4j-core           # all vulns affecting a package
+keyhunt vulndb --search "deserialization"     # summary substring search
+```
+
+```text
+$ keyhunt vulndb CVE-2021-44228
+{
+  "query": "CVE-2021-44228",
+  "count": 1,
+  "records": [
+    {
+      "id": "GHSA-jfh8-c2jp-5v3q",
+      "aliases": ["CVE-2021-44228"],
+      "ecosystem": "Maven",
+      "summary": "Remote code injection in Log4j",
+      "severity": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H/E:H",
+      "packages": ["org.apache.logging.log4j:log4j-core", "..."]
+    }
+  ]
+}
+```
+
+From Python:
+
+```python
+from keyhunt.vulndb_local import VulnDB
+db = VulnDB()                       # lazy-loads the bundled gz
+db.count()                          # 262351
+db.by_cve("CVE-2021-44228")         # list of records
+db.by_package("log4j-core")         # records affecting that package
+```
+
+<div align="right"><a href="#top">↑ back to top</a></div>
+
+<a name="feeds"></a>
+## Edge data feeds — keyless, offline-capable refresh
+
+For deployments that want fresher intelligence than the bundled snapshot,
+keyhunt includes a stdlib-only ingester (`keyhunt feeds`) over a catalog of
+**real, mostly-keyless feeds** — CISA KEV, FIRST EPSS, OSV, NVD, MITRE ATT&CK
+(STIX), NIST SP 800-53 (OSCAL), and abuse.ch (Feodo/ThreatFox/URLhaus/SSLBL).
+
+It is built for the edge / air gap:
+
+- **Standard library only** (`urllib`) — no pip dependencies.
+- **Explicit fetches.** Nothing is downloaded until you run `feeds update`.
+- **`--offline` serves cache only** and never touches the network.
+- **Snapshot export/import** tars the cache for sneakernet transfer into a
+  disconnected enclave.
+
+```bash
+keyhunt feeds list                              # show the catalog + cache age
+keyhunt feeds list --domain vuln                # filter by domain
+keyhunt feeds update cisa-kev epss              # fetch + cache (online)
+keyhunt feeds get cisa-kev --offline            # serve from cache, no network
+keyhunt feeds snapshot-export feeds.tar.gz      # for air-gap transfer
+keyhunt feeds snapshot-import feeds.tar.gz      # restore inside the enclave
+```
+
+The catalog lives at `keyhunt/data_feeds_2026.json`; the cache directory is
+`COGNIS_FEEDS_CACHE` (default `~/.cache/cognis-feeds`). All feeds are
+defensive / authorized-use intelligence only.
+
+<div align="right"><a href="#top">↑ back to top</a></div>
+
+<a name="scope"></a>
+## Scope, authorization & safety
+
+keyhunt is a **defensive, authorized-use** tool.
+
+- **Passive and offline.** keyhunt only *reads* files you point it at — extracted
+  firmware, filesystem dumps, config trees, source. It performs **no active
+  scanning, no network probing, and no exploitation**. There is nothing to gate
+  behind a `--authorized` flag because the tool never reaches out.
+- **Use it on assets you own or are authorized to assess.** Recovering secrets
+  from third-party firmware/dumps you have no right to inspect may be illegal.
+- **Findings are redacted by default** so reports, tickets, and CI logs stay
+  safe to share; `--show-secrets` reveals full values and should be used only
+  on trusted output sinks.
+- **No fabricated intelligence.** Every record in the bundled DB and every entry
+  in the feed catalog is a real, attributable upstream source.
+- **Responsible disclosure.** If a scan reveals a live secret in someone else's
+  product, follow the vendor's disclosure process — see [SECURITY.md](SECURITY.md).
 
 <div align="right"><a href="#top">↑ back to top</a></div>
 
@@ -244,7 +345,7 @@ PRs, new rules, and demo scenarios are welcome under the collaboration-pull mode
 
 ## Interoperability
 
-`{}` composes with the 300+ tool Cognis suite — JSON in/out and a shared
+`keyhunt` composes with the 300+ tool Cognis suite — JSON in/out and a shared
 OpenAI-compatible `/v1` backbone. See **[INTEROP.md](INTEROP.md)** for the
 suite map, composition patterns, and reference stacks.
 
@@ -256,6 +357,13 @@ Source-available under the **Cognis Open Collaboration License (COCL) v1.0** —
 
 <div align="center"><sub><b><a href="https://cognis.digital">Cognis Digital</a></b> · one of 170+ tools in the <a href="https://github.com/cognis-digital/cognis-neural-suite">Cognis Neural Suite</a> · <i>Making Tomorrow Better Today</i></sub></div>
 
-## Bundled vulnerability database
+## Bundled offline data
 
-Ships `keyhunt/cognis_vulndb.jsonl.gz` — **262,351 real vulnerabilities** (OSV across 7 ecosystems) with detailed metadata; offline stdlib loader `vulndb_local.VulnDB`, air-gap ready.
+- **Vulnerability DB** — `keyhunt/cognis_vulndb.jsonl.gz`: **262,351 real
+  vulnerabilities** (OSV across 7 ecosystems) with detailed metadata; offline
+  stdlib loader `vulndb_local.VulnDB`, air-gap ready. See
+  [Vulnerability database](#vulndb).
+- **Edge feed catalog** — `keyhunt/data_feeds_2026.json` + `keyhunt/datafeeds.py`:
+  keyless, offline-capable refresh of CISA KEV / EPSS / OSV / NVD / ATT&CK /
+  OSCAL / abuse.ch, with snapshot export/import for sneakernet to an air gap.
+  See [Edge data feeds](#feeds).

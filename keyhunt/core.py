@@ -15,11 +15,42 @@ Design:
 """
 from __future__ import annotations
 
+import json
 import math
 import os
 import re
 from dataclasses import dataclass, field, asdict
 from typing import Iterable, Iterator, List, Optional
+
+# ---------------------------------------------------------------------------
+# Tool identity
+# ---------------------------------------------------------------------------
+
+TOOL_NAME = "keyhunt"
+
+
+def _read_version() -> str:
+    """Read the version from the repo VERSION file, falling back to a default.
+
+    Keeping the version in one place (the VERSION file) means the CLI banner,
+    SARIF driver, JSON payload, and package metadata never drift apart.
+    """
+    here = os.path.dirname(os.path.abspath(__file__))
+    for candidate in (
+        os.path.join(here, "VERSION"),
+        os.path.join(os.path.dirname(here), "VERSION"),
+    ):
+        try:
+            with open(candidate, "r", encoding="utf-8") as fh:
+                v = fh.read().strip()
+            if v:
+                return v
+        except OSError:
+            continue
+    return "1.2.9"
+
+
+TOOL_VERSION = _read_version()
 
 # ---------------------------------------------------------------------------
 # Detector definitions
@@ -312,3 +343,33 @@ def scan_path(
     sev_rank = {"critical": 0, "high": 1, "medium": 2, "low": 3}
     findings.sort(key=lambda f: (sev_rank.get(f.severity, 9), f.path, f.line))
     return findings
+
+
+# ---------------------------------------------------------------------------
+# Convenience API (used by the MCP server and downstream callers)
+# ---------------------------------------------------------------------------
+
+
+def scan(target: str, redact: bool = True) -> dict:
+    """Scan a file/dir and return a JSON-serializable result dict.
+
+    Mirrors the CLI JSON payload so the MCP tool and library callers share the
+    exact shape the CLI emits. Secrets are redacted by default.
+    """
+    findings = scan_path(target)
+    counts: dict = {}
+    for f in findings:
+        counts[f.severity] = counts.get(f.severity, 0) + 1
+    return {
+        "tool": TOOL_NAME,
+        "version": TOOL_VERSION,
+        "target": target,
+        "count": len(findings),
+        "severity_counts": counts,
+        "findings": [f.to_dict(redact=redact) for f in findings],
+    }
+
+
+def to_json(result: dict, indent: int = 2) -> str:
+    """Serialize a scan() result (or any dict) to a JSON string."""
+    return json.dumps(result, indent=indent)

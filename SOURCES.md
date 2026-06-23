@@ -1,5 +1,32 @@
 # Sources
 
+## Data behind keyhunt
+
+keyhunt carries two real, attributable offline datasets. No intelligence is
+fabricated; every record traces to a public upstream.
+
+### Bundled vulnerability database (`keyhunt/cognis_vulndb.jsonl.gz`)
+
+- **OSV.dev** (<https://osv.dev>) — consolidated open-source vulnerability data
+  across PyPI, npm, Go, Maven, RubyGems, crates.io, and NuGet. 262,351 records
+  with CVE/GHSA aliases, severity, affected packages, and dates.
+
+### Edge data-feed catalog (`keyhunt/data_feeds_2026.json`)
+
+Real, mostly-keyless feeds fetched on demand (never automatically) and cached
+for offline / air-gap use:
+
+- **CISA KEV** — Known Exploited Vulnerabilities catalog.
+- **FIRST EPSS** — Exploit Prediction Scoring System.
+- **NIST NVD** — CVE API 2.0.
+- **MITRE ATT&CK** — Enterprise STIX 2.1 bundle.
+- **NIST SP 800-53 rev5** — OSCAL control catalog.
+- **abuse.ch** — Feodo Tracker, ThreatFox, URLhaus, SSLBL.
+- **OFAC SDN**, **cloud IP ranges**, **Tor exit nodes**, and more (see the
+  catalog file for the full list and per-feed cadence/keyless flags).
+
+All feeds are defensive / authorized-use intelligence only.
+
 <!-- cognis-2026-live-sources -->
 
 ## Live 2026 sources (auto-expanded)

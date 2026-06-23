@@ -6,3 +6,13 @@ dist/
 build/
 .pytest_cache/
 .DS_Store
+
+# language port build artifacts
+ports/rust/target/
+ports/go/keyhunt-go
+ports/go/keyhunt-go.exe
+ports/javascript/node_modules/
+
+# data-feed local cache (never commit fetched intel)
+.cache/cognis-feeds/
+*.bulk.json

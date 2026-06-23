@@ -84,6 +84,52 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="print full secret values instead of redacting them",
     )
+
+    # --- vuln database (offline, bundled) ---------------------------------
+    vdb = sub.add_parser(
+        "vulndb",
+        help="query the bundled offline vulnerability database (OSV, 262k records)",
+        description="Look up CVEs/GHSAs or affected packages in the bundled, "
+        "air-gap-ready OSV corpus. No network, no key.",
+    )
+    vdb.add_argument(
+        "query",
+        nargs="?",
+        help="CVE/GHSA id (e.g. CVE-2021-44228), package name, or omit with --count",
+    )
+    vdb.add_argument("--package", metavar="NAME",
+                     help="treat the query as a package name lookup")
+    vdb.add_argument("--search", metavar="TEXT",
+                     help="substring search over vulnerability summaries")
+    vdb.add_argument("--count", action="store_true",
+                     help="print the number of records in the bundled DB and exit")
+    vdb.add_argument("--limit", type=int, default=20,
+                     help="max records to print for searches (default: 20)")
+
+    # --- edge / air-gap data feeds ----------------------------------------
+    feeds = sub.add_parser(
+        "feeds",
+        help="list/refresh the keyless edge data-feed catalog (offline-capable)",
+        description="Manage the bundled Cognis data-feed catalog (CISA KEV, EPSS, "
+        "OSV, NVD, ATT&CK, OSCAL, abuse.ch ...). Fetches are explicit; --offline "
+        "serves cache only and never touches the network.",
+    )
+    feeds.add_argument("action", choices=("list", "update", "get", "snapshot-export",
+                                          "snapshot-import"),
+                       help="catalog action")
+    feeds.add_argument("args", nargs="*", help="feed ids or snapshot path")
+    feeds.add_argument("--domain", default=None,
+                       help="filter `list` by domain (vuln/threat-intel/compliance/...)")
+    feeds.add_argument("--offline", action="store_true",
+                       help="serve cache only; never reach the network")
+
+    # --- MCP server (for AI agents) ---------------------------------------
+    sub.add_parser(
+        "mcp",
+        help="run keyhunt as an MCP stdio server (requires the 'mcp' extra)",
+        description="Expose keyhunt's scan() as an MCP tool for Claude Desktop, "
+        "Cursor, or Cognis.Studio. Install with: pip install 'cognis-keyhunt[mcp]'.",
+    )
     return parser
 
 
@@ -243,7 +289,106 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 1 if gating else 0
         return 1 if findings else 0
 
+    if args.command == "vulndb":
+        return _run_vulndb(args)
+
+    if args.command == "feeds":
+        return _run_feeds(args)
+
+    if args.command == "mcp":
+        from .mcp_server import serve
+        return serve()
+
     parser.print_help()
+    return 2
+
+
+def _run_vulndb(args) -> int:
+    """Query the bundled offline vulnerability database. Stdlib only, no network."""
+    try:
+        from .vulndb_local import VulnDB
+    except Exception as exc:  # pragma: no cover - defensive
+        print(f"{TOOL_NAME}: error: vulndb unavailable: {exc}", file=sys.stderr)
+        return 2
+    db = VulnDB()
+    if args.count:
+        print(db.count())
+        return 0
+    if args.search:
+        hits = db.search(args.search, limit=args.limit)
+    elif args.package:
+        hits = db.by_package(args.package)
+    elif args.query:
+        q = args.query
+        # CVE/GHSA ids contain a dash + digits; otherwise treat as package.
+        if q.upper().startswith(("CVE-", "GHSA-", "RUSTSEC-", "PYSEC-", "GO-")):
+            hits = db.by_cve(q)
+        else:
+            hits = db.by_package(q) or db.by_cve(q)
+    else:
+        print(f"{TOOL_NAME}: error: provide a query, --package, --search, or --count",
+              file=sys.stderr)
+        return 2
+    print(json.dumps({"query": args.query or args.package or args.search,
+                      "count": len(hits),
+                      "records": hits[: args.limit]}, indent=2))
+    return 0 if hits else 1
+
+
+def _run_feeds(args) -> int:
+    """Drive the edge/air-gap data-feed ingester. All network access is explicit."""
+    try:
+        from . import datafeeds
+    except Exception as exc:  # pragma: no cover - defensive
+        print(f"{TOOL_NAME}: error: datafeeds unavailable: {exc}", file=sys.stderr)
+        return 2
+    action = args.action
+    if action == "list":
+        feeds = datafeeds.list_feeds(domain=args.domain)
+        for f in feeds:
+            age = datafeeds.cached_age_hours(f["id"])
+            tag = f"[{age:.1f}h old]" if age is not None else "[uncached]"
+            print(f"  {f['id']:30} {f.get('domain', ''):14} {tag:12} "
+                  f"{f.get('name', f.get('description', ''))}")
+        print(f"\n{len(feeds)} feed(s).  Refresh: keyhunt feeds update <id> ; "
+              f"offline serve: keyhunt feeds get <id> --offline")
+        return 0
+    if action == "update":
+        if not args.args:
+            print(f"{TOOL_NAME}: error: feeds update needs one or more feed ids",
+                  file=sys.stderr)
+            return 2
+        rc = 0
+        for fid in args.args:
+            try:
+                datafeeds.update(fid)
+                print(f"updated {fid}")
+            except Exception as exc:
+                print(f"{TOOL_NAME}: warn: {fid}: {exc}", file=sys.stderr)
+                rc = 1
+        return rc
+    if action == "get":
+        if not args.args:
+            print(f"{TOOL_NAME}: error: feeds get needs a feed id", file=sys.stderr)
+            return 2
+        data = datafeeds.get(args.args[0], offline=args.offline)
+        print(json.dumps(data, indent=2)[:8000] if isinstance(data, (dict, list))
+              else str(data)[:8000])
+        return 0
+    if action == "snapshot-export":
+        if not args.args:
+            print(f"{TOOL_NAME}: error: snapshot-export needs a path", file=sys.stderr)
+            return 2
+        datafeeds.snapshot_export(args.args[0])
+        print(f"exported feed cache to {args.args[0]}")
+        return 0
+    if action == "snapshot-import":
+        if not args.args:
+            print(f"{TOOL_NAME}: error: snapshot-import needs a path", file=sys.stderr)
+            return 2
+        datafeeds.snapshot_import(args.args[0])
+        print(f"imported feed cache from {args.args[0]}")
+        return 0
     return 2
 
 

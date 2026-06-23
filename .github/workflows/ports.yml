@@ -1,0 +1,54 @@
+name: ports
+on: [push, pull_request]
+permissions:
+  contents: read
+
+jobs:
+  node:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ports/javascript
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Run the Node port over a demo
+        run: node index.js ../../demos/06-iot-router || true
+      - name: Test
+        run: node --test
+
+  go:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ports/go
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+      - name: Vet
+        run: go vet ./...
+      - name: Build
+        run: go build -o keyhunt-go .
+      - name: Test
+        run: go test ./...
+      - name: Smoke run over a demo
+        run: ./keyhunt-go ../../demos/06-iot-router || true
+
+  rust:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ports/rust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build
+        run: cargo build --release
+      - name: Test
+        run: cargo test
+      - name: Smoke run over a demo
+        run: ./target/release/keyhunt ../../demos/06-iot-router || true

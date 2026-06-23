@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cognis-keyhunt"
-version = "0.1.1"
+version = "1.2.9"
 description = "Scan firmware blobs and filesystem dumps for hardcoded private keys, API tokens, default creds, and weak RSA/ECC material."
 authors = [{name = "Cognis Digital", email = "suite@cognis.digital"}]
 license = {text = "LicenseRef-COCL-1.0"}
@@ -34,6 +34,13 @@ keyhunt = "keyhunt.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["keyhunt"]
+# Ship the bundled offline data so the tool works the moment it's installed:
+# the 262k-record OSV vuln DB, the edge data-feed catalog, and the VERSION pin.
+artifacts = [
+    "keyhunt/cognis_vulndb.jsonl.gz",
+    "keyhunt/data_feeds_2026.json",
+    "keyhunt/VERSION",
+]
 
 [tool.hatch.metadata]
 allow-direct-references = true

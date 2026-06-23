@@ -1,10 +1,16 @@
 {
   "name": "@cognis/keyhunt",
-  "version": "0.2.0",
-  "description": "JavaScript port of keyhunt (Cognis Neural Suite)",
+  "version": "1.2.9",
+  "description": "JavaScript/Node port of keyhunt — passive firmware/filesystem secret scanner (Cognis Neural Suite)",
   "bin": {
     "keyhunt": "index.js"
   },
+  "scripts": {
+    "test": "node --test"
+  },
   "license": "LicenseRef-COCL-1.0",
-  "type": "module"
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  }
 }
