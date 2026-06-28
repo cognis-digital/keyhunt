@@ -1,0 +1,3 @@
+$ keyhunt-emit --version
+
+keyhunt 1.2.9

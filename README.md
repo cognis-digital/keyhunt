@@ -20,6 +20,86 @@ pip install cognis-keyhunt
 keyhunt scan .            # → prioritized findings in seconds
 ```
 
+
+<!-- cognis:example:start -->
+## 🔎 Example output
+
+Real, reproducible output from the tool — runs offline:
+
+```console
+$ keyhunt-emit --version
+keyhunt 1.2.9
+```
+
+```console
+$ keyhunt-emit --help
+usage: keyhunt [-h] [--version] [--format {table,json,sarif}]
+               {scan,vulndb,feeds,mcp} ...
+
+Scan firmware / filesystem dumps for hardcoded keys, tokens, and default credentials.
+
+positional arguments:
+  {scan,vulndb,feeds,mcp}
+    scan                scan a file or directory tree for secrets
+    vulndb              query the bundled offline vulnerability database (OSV,
+                        262k records)
+    feeds               list/refresh the keyless edge data-feed catalog
+                        (offline-capable)
+    mcp                 run keyhunt as an MCP stdio server (requires the 'mcp'
+                        extra)
+
+options:
+  -h, --help            show this help message and exit
+  --version             show program's version number and exit
+  --format {table,json,sarif}
+                        output format (default: table)
+
+Point it at a router firmware extraction and get hardcoded creds. Exit code 1 means secrets were found (CI-friendly).
+```
+
+> Blocks above are real `keyhunt` output — reproduce them from a clone.
+
+**Sample result format** _(illustrative values — run on your own data for real findings):_
+
+```
+{
+"findings": [
+    {
+        "id": "1234567890",
+        "title": "Suspicious Network Traffic",
+        "description": "Potential malicious activity detected on network interface 192.168.1.100",
+        "created": "2023-02-20T14:30:00Z",
+        "modified": "2023-02-20T14:30:00Z",
+        "objects": [
+            {
+                "id": "1234567890-object-1",
+                "type": "indicator",
+                "name": "Suspicious IP Address",
+                "description": "Potential malicious activity detected on network interface 192.168.1.100"
+            }
+        ]
+    },
+    {
+        "id": "2345678901",
+        "title": "Unusual File Access",
+        "description": "Potential unauthorized access to file C:\\Windows\\System32\\drivers\\etc\\hosts",
+        "created": "2023-02-20T14:30:00Z",
+        "modified": "2023-02-20T14:30:00Z",
+        "objects": [
+            {
+                "id": "2345678901-object-1",
+                "type": "indicator",
+                "name": "Unusual File Access",
+                "description": "Potential unauthorized access to file C:\\Windows\\System32\\drivers\\etc\\hosts"
+            }
+        ]
+    }
+]
+}
+```
+
+<!-- cognis:example:end -->
+
 ## Usage — step by step
 
 1. **Install** the scanner:

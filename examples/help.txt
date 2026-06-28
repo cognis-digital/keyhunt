@@ -1,0 +1,24 @@
+$ keyhunt-emit --help
+
+usage: keyhunt [-h] [--version] [--format {table,json,sarif}]
+               {scan,vulndb,feeds,mcp} ...
+
+Scan firmware / filesystem dumps for hardcoded keys, tokens, and default credentials.
+
+positional arguments:
+  {scan,vulndb,feeds,mcp}
+    scan                scan a file or directory tree for secrets
+    vulndb              query the bundled offline vulnerability database (OSV,
+                        262k records)
+    feeds               list/refresh the keyless edge data-feed catalog
+                        (offline-capable)
+    mcp                 run keyhunt as an MCP stdio server (requires the 'mcp'
+                        extra)
+
+options:
+  -h, --help            show this help message and exit
+  --version             show program's version number and exit
+  --format {table,json,sarif}
+                        output format (default: table)
+
+Point it at a router firmware extraction and get hardcoded creds. Exit code 1 means secrets were found (CI-friendly).
